@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="boardMapper">
+   
+	<insert id="insert" parameterType="kr.co.vo.BoardVO" useGeneratedKeys="true" keyProperty="bno">
+		<selectKey keyProperty="bno" resultType="int" order="BEFORE">
+			SELECT MP_BOARD_SEQ.NEXTVAL
+			FROM DUAL
+		</selectKey>
+		
+		INSERT INTO mp_board (
+		      bno
+		    , title
+		    , content
+		    , writer
+		) VALUES (
+		      #{bno}
+		    , #{title}
+		    , #{content}
+		    , #{writer}
+		)
+	</insert>
+	
+	<select id="list" resultType="kr.co.vo.BoardVO">
+		SELECT bno
+			 , title
+			 , content
+			 , writer
+			 , regdate
+		FROM MP_BOARD
+		ORDER BY BNO DESC
+	</select>
+	
+	<select id="read" parameterType="int" resultType="kr.co.vo.BoardVO">
+		SELECT bno
+			 , title
+			 , content
+			 , writer
+			 , regdate
+		FROM MP_BOARD
+		WHERE BNO = #{bno}
+	</select>
+	
+	<update id="update" parameterType="kr.co.vo.BoardVO">
+		UPDATE MP_BOARD
+		SET title = #{title}
+			, content = #{content}
+		WHERE bno = #{bno}
+	</update>
+	
+	<delete id="delete" parameterType="int">
+		DELETE
+		FROM MP_BOARD
+		WHERE bno = #{bno}
+	</delete>
+	
+	<select id="listPage" resultType="kr.co.vo.BoardVO" parameterType="kr.co.vo.Criteria">
+		SELECT bno
+		     , title
+		     , content
+		     , writer
+		     , regdate
+		     , hit
+		FROM(
+		    SELECT bno
+		         , title
+		         , content
+		         , writer
+		         , regdate
+		         , hit
+		         , row_number() OVER(ORDER BY bno DESC) AS rNum
+		    FROM MP_BOARD
+		    WHERE 1=1
+		    <include refid="search"></include>
+		) MP
+		WHERE rNum between #{rowStart} and #{rowEnd}
+		ORDER BY bno DESC
+	</select>
+	
+	<select id="listCount" parameterType="kr.co.vo.SearchCriteria" resultType="int">
+			SELECT COUNT(BNO)
+		  	FROM MP_BOARD
+		 	WHERE 1=1
+		 	<include refid="search"></include>
+		 	AND bno > 0
+	</select>
+	
+	<sql id="search">
+		<if test="searchType != null">
+			<if test="searchType == 't'.toString()">AND TITLE LIKE '%' || #{keyword} || '%'</if>
+			<if test="searchType == 'c'.toString()">AND CONTENT LIKE '%' || #{keyword} || '%'</if>
+			<if test="searchType == 'w'.toString()">AND WRITER LIKE '%' || #{keyword} || '%'</if>
+			<if test="searchType == 'tc'.toString()">AND (TITLE LIKE '%' || #{keyword} || '%') or (CONTENT LIKE '%' || #{keyword} || '%')</if>
+		</if>
+	</sql>
+	
+	<insert id="insertFile" parameterType="hashMap">
+		INSERT INTO MP_FILE(
+			FILE_NO
+			, BNO
+			, ORG_FILE_NAME
+			, STORED_FILE_NAME
+			, FILE_SIZE
+		) VALUES (
+			SEQ_MP_FILE_NO.NEXTVAL
+			, #{BNO}
+			, #{ORG_FILE_NAME}
+			, #{STORED_FILE_NAME}
+			, #{FILE_SIZE}
+		)
+	</insert>
+	
+	<!-- 첨부파일 조회 -->
+	<select id="selectFileList" parameterType="int" resultType="hashMap">
+		SELECT FILE_NO
+			 , ORG_FILE_NAME
+			 , ROUND(FILE_SIZE/1024,1) AS FILE_SIZE
+			 , DEL_GB
+		FROM MP_FILE
+		WHERE BNO = #{bno}
+		AND DEL_GB = 'N'
+		ORDER BY FILE_NO ASC
+	</select>
+	
+	<!-- 첨부파일 다운로드 -->
+	<select id="selectFileInfo" parameterType="hashMap" resultType="hashMap">
+		SELECT STORED_FILE_NAME
+			 , ORG_FILE_NAME
+		FROM MP_FILE
+		WHERE FILE_NO = #{FILE_NO}
+	</select>
+	
+	<update id="updateFile" parameterType="hashMap">
+		UPDATE MP_FILE SET
+			DEL_GB = 'Y'
+		WHERE FILE_NO = #{FILE_NO}
+	</update>
+	
+	<!-- 게시판 조회수 -->
+	<update id="boardHit" parameterType="int">
+		UPDATE MP_BOARD SET
+			HIT = HIT+1
+		WHERE BNO = #{bno}
+	</update>
+   
+</mapper>
